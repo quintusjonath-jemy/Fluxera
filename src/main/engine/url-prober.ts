@@ -19,6 +19,17 @@ export async function probeUrl(
   const timeoutMs = options.timeoutMs ?? 15000
 
   let currentUrl = inputUrl.trim()
+  if (!currentUrl.startsWith('http://') && !currentUrl.startsWith('https://')) {
+    const preview = inputUrl.length > 40 ? inputUrl.substring(0, 37) + '...' : inputUrl
+    throw new Error(`Invalid URL: Must start with http:// or https:// (received "${preview}")`)
+  }
+
+  try {
+    new URL(currentUrl)
+  } catch {
+    throw new Error(`Invalid URL: Unable to parse URL "${inputUrl}"`)
+  }
+
   const visitedUrls = new Set<string>()
 
   for (let hop = 0; hop <= maxRedirects; hop++) {
