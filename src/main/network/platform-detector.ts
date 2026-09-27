@@ -135,15 +135,27 @@ async function detectLinuxAdapters(adapterMap: Map<string, RawAdapterInfo>): Pro
         let type: InterfaceType = 'other'
         let friendlyName = name
 
-        if (name.startsWith('wl') || name.startsWith('wlan') || name.includes('wifi')) {
-          type = 'wifi'
-          friendlyName = `Wi-Fi (${name})`
-        } else if (name.startsWith('eth') || name.startsWith('en') || name.startsWith('eno') || name.startsWith('ens')) {
-          type = 'ethernet'
-          friendlyName = `Ethernet (${name})`
-        } else if (name.startsWith('usb') || name.startsWith('rndis') || name.startsWith('enx')) {
+        if (
+          name.startsWith('usb') ||
+          name.startsWith('rndis') ||
+          name.startsWith('enx') ||
+          /en.*u\d+/i.test(name) ||
+          name.includes('tether')
+        ) {
           type = 'usb'
           friendlyName = `USB Tether (${name})`
+        } else if (name.startsWith('wl') || name.startsWith('wlan') || name.includes('wifi')) {
+          type = 'wifi'
+          friendlyName = `Wi-Fi (${name})`
+        } else if (
+          name.startsWith('eth') ||
+          name.startsWith('eno') ||
+          name.startsWith('ens') ||
+          name.startsWith('enp') ||
+          name.startsWith('en')
+        ) {
+          type = 'ethernet'
+          friendlyName = `Ethernet (${name})`
         } else if (name.startsWith('ww') || name.startsWith('lte')) {
           type = 'cellular'
           friendlyName = `Cellular (${name})`
@@ -171,14 +183,26 @@ async function detectLinuxAdapters(adapterMap: Map<string, RawAdapterInfo>): Pro
  */
 export function inferInterfaceType(name: string): { type: InterfaceType; friendlyName: string } {
   const lower = name.toLowerCase()
+  if (
+    lower.startsWith('usb') ||
+    lower.startsWith('rndis') ||
+    lower.startsWith('enx') ||
+    /en.*u\d+/i.test(lower) ||
+    lower.includes('tether')
+  ) {
+    return { type: 'usb', friendlyName: 'USB Tether' }
+  }
   if (lower.startsWith('wl') || lower.includes('wifi') || lower.includes('wlan')) {
     return { type: 'wifi', friendlyName: 'Wi-Fi' }
   }
-  if (lower.startsWith('eth') || lower.startsWith('en0') || lower.startsWith('eno') || lower.startsWith('ens')) {
+  if (
+    lower.startsWith('eth') ||
+    lower.startsWith('en0') ||
+    lower.startsWith('eno') ||
+    lower.startsWith('ens') ||
+    lower.startsWith('en')
+  ) {
     return { type: 'ethernet', friendlyName: 'Ethernet' }
-  }
-  if (lower.startsWith('usb') || lower.startsWith('rndis') || lower.startsWith('enx') || lower.includes('tether')) {
-    return { type: 'usb', friendlyName: 'USB Tether' }
   }
   if (lower.startsWith('ww') || lower.includes('cellular') || lower.includes('lte') || lower.includes('mobile')) {
     return { type: 'cellular', friendlyName: 'Cellular' }

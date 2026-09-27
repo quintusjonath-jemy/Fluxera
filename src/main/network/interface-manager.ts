@@ -207,56 +207,48 @@ export class InterfaceManager extends EventEmitter {
   }
 
   /**
-   * Measure latency and verify internet connectivity through a specific bound local IP address
+   * Measure latency and verify internet connectivity through a specific bound local IP address.
+   * Tests multiple redundant endpoints to avoid false negatives from host-specific routing tables.
    */
-  private measureInterfaceLatency(localAddress: string): Promise<number> {
+  private async measureInterfaceLatency(localAddress: string): Promise<number> {
+    const isIpv4 = localAddress.includes('.')
+    const targets = ['1.0.0.1', 'cloudflare.com', '1.1.1.1', 'google.com']
+
+    for (const hostname of targets) {
+      const latency = await this.probeTarget(hostname, localAddress, isIpv4 ? 4 : 6)
+      if (latency > 0) {
+        return latency
+      }
+    }
+
+    return 0
+  }
+
+  private probeTarget(hostname: string, localAddress: string, family: 4 | 6): Promise<number> {
     return new Promise((resolve) => {
       const startTime = Date.now()
       const req = http.request(
         {
-          hostname: '1.1.1.1',
+          hostname,
           port: 80,
           path: '/',
           method: 'HEAD',
           localAddress,
-          family: 4,
-          timeout: 2500
+          family,
+          timeout: 2000
         },
         (res) => {
           res.resume()
-          const latency = Date.now() - startTime
-          resolve(latency)
+          resolve(Math.max(1, Date.now() - startTime))
         }
       )
 
-      req.on('error', () => {
-        // Fallback to secondary reliable DNS probe
-        const req2 = http.request(
-          {
-            hostname: '8.8.8.8',
-            port: 80,
-            path: '/',
-            method: 'HEAD',
-            localAddress,
-            family: 4,
-            timeout: 2500
-          },
-          (res2) => {
-            res2.resume()
-            resolve(Date.now() - startTime)
-          }
-        )
-
-        req2.on('error', () => resolve(0))
-        req2.on('timeout', () => {
-          req2.destroy()
-          resolve(0)
-        })
-        req2.end()
-      })
-
       req.on('timeout', () => {
         req.destroy()
+        resolve(0)
+      })
+
+      req.on('error', () => {
         resolve(0)
       })
 
